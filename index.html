@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dart 程式碼模擬器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Light blue-gray background */
+            display: flex;
+            flex-direction: column; /* Changed to column to stack nav and container */
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1.5rem;
+        }
+        .tab-nav-wrapper {
+            max-width: 1024px; /* Match container width */
+            width: 100%;
+            margin-bottom: 1.5rem; /* Space between nav and container */
+            background-color: #e2e8f0; /* Light gray for tab navigation */
+            border-radius: 1.5rem; /* Rounded corners for the nav bar itself */
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08); /* Subtle shadow for nav */
+            overflow: hidden; /* Ensure rounded corners clip content */
+        }
+        .tab-nav {
+            padding: 0.75rem 0; /* Reduced padding slightly */
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            margin: 0.25rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            color: #4a5568; /* Dark gray text */
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background-color: transparent;
+            border: none;
+        }
+        .tab-button:hover {
+            background-color: #cbd5e0;
+            color: #2d3748;
+        }
+        .tab-button.active {
+            background-color: #4c51bf; /* Indigo for active tab */
+            color: white;
+            box-shadow: 0 4px 10px rgba(76, 81, 191, 0.3);
+        }
+
+        .container {
+            max-width: 1024px; /* Slightly wider to accommodate tabs */
+            background-color: #ffffff;
+            border-radius: 1.5rem; /* Apply full border-radius to the container */
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            width: 100%; /* Ensure container takes full width */
+        }
+        @media (min-width: 768px) {
+            .container {
+                flex-direction: row;
+            }
+        }
+        
+        .tab-content-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        @media (min-width: 768px) {
+            .tab-content-wrapper {
+                flex-direction: row;
+            }
+        }
+
+        .tab-pane {
+            display: none; /* Hide all tab panes by default */
+        }
+        .tab-pane.active {
+            display: flex; /* Show active tab pane */
+            flex-direction: column;
+            flex: 1;
+        }
+        @media (min-width: 768px) {
+            .tab-pane.active {
+                flex-direction: row;
+            }
+        }
+
+        .code-area, .output-area {
+            flex: 1;
+            padding: 2rem;
+        }
+        .code-area {
+            background-color: #2d3748; /* Darker background for code input */
+            color: #e2e8f0;
+            font-family: 'Roboto Mono', monospace; /* Monospaced font for code */
+            font-size: 0.95rem;
+            line-height: 1.5;
+            border-bottom-left-radius: 1.5rem; /* Apply bottom-left radius */
+        }
+        @media (min-width: 768px) {
+            .code-area {
+                border-top-left-radius: 1.5rem; /* Apply top-left radius on desktop */
+                border-bottom-left-radius: 1.5rem; /* Ensure bottom-left is also rounded */
+            }
+        }
+        @media (max-width: 767px) {
+            .code-area {
+                border-bottom-left-radius: 0; /* No bottom-left on mobile */
+                border-top-right-radius: 1.5rem; /* Top-right on mobile */
+            }
+        }
+        .output-area {
+            background-color: #f7fafc; /* Lighter background for output */
+            color: #2d3748;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            border-bottom-right-radius: 1.5rem; /* Apply bottom-right radius */
+        }
+        @media (min-width: 768px) {
+            .output-area {
+                border-top-right-radius: 1.5rem; /* Apply top-right radius on desktop */
+                border-bottom-right-radius: 1.5rem; /* Ensure bottom-right is also rounded */
+            }
+        }
+        @media (max-width: 767px) {
+            .output-area {
+                border-top-right-radius: 0; /* No top-right on mobile */
+                border-bottom-left-radius: 1.5rem; /* Bottom-left on mobile */
+            }
+        }
+        textarea {
+            background-color: transparent;
+            border: none;
+            resize: none;
+            outline: none;
+            width: 100%;
+            height: 250px; /* Fixed height for code input */
+            padding: 0.5rem;
+            color: #e2e8f0;
+        }
+        pre {
+            white-space: pre-wrap; /* Preserve whitespace and wrap long lines */
+            word-break: break-word; /* Break long words */
+            min-height: 250px; /* Fixed height for output */
+            padding: 0.5rem;
+            background-color: #e2e8f0; /* Slightly darker background for output content */
+            border-radius: 0.5rem;
+            color: #1a202c;
+        }
+        .btn-run {
+            background-image: linear-gradient(to right, #4c51bf 0%, #667eea 100%); /* Gradient button */
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(76, 81, 191, 0.4);
+        }
+        .btn-run:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(76, 81, 191, 0.6);
+        }
+        .info-box {
+            background-color: #e0f2fe; /* Light blue info box */
+            color: #2563eb;
+            border: 1px solid #93c5fd;
+        }
+    </style>
+</head>
+<body>
+    <div class="tab-nav-wrapper">
+        <div class="tab-nav">
+            <button class="tab-button active" data-tab="unit1">單元 1: 變數與輸出</button>
+            <button class="tab-button" data-tab="unit2">單元 2: 條件語句</button>
+            <button class="tab-button" data-tab="unit3">單元 3: 迴圈</button>
+            <button class="tab-button" data-tab="unit4">單元 4: 函數</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="tab-content-wrapper">
+            <div id="unit1" class="tab-pane active">
+                <div class="code-area">
+                    <h2 class="text-3xl font-bold mb-6 text-white">Dart 程式碼輸入</h2>
+                    <div class="info-box p-4 rounded-lg mb-6 text-sm">
+                        <p class="font-semibold mb-2">💡 提示：</p>
+                        <p>本單元專注於 Dart 的變數宣告 (`var`, `int`, `String`, `bool`, `double`) 和 `print()` 輸出。</p>
+                        <ul class="list-disc list-inside mt-2">
+                            <li>`print('您的訊息');` 或 `print("您的訊息");`</li>
+                            <li>`var 變數名 = '值';`</li>
+                            <li>`int 變數名 = 數字;`</li>
+                            <li>`double 變數名 = 數字;`</li>
+                            <li>`bool 變數名 = true/false;`</li>
+                            <li>支援字串插值：`'哈囉, $name！'`</li>
+                        </ul>
+                        <p class="mt-2">請注意，這是一個簡化的模擬器，不支援完整的 Dart 語法解析或複雜邏輯。</p>
+                    </div>
+                    <textarea id="dartCodeInput1" placeholder="輸入您的 Dart 程式碼片段">
+void main() {
+  // 宣告不同型別的變數
+  var name = '工程師';
+  String greeting = "哈囉";
+  int year = 2025;
+  double price = 99.99;
+  bool isActive = true;
+
+  // 使用 print 函數輸出變數和字串插值
+  print('$greeting, $name！');
+  print('現在是 $year 年。');
+  print('商品價格: \\$\\{price\\}。'); // FIX: Escape $ and {} for JavaScript template literal
+  print('狀態活躍: $isActive');
+
+  // 您也可以直接輸出文字
+  print('這是一個直接的訊息。');
+}
+</textarea>
+                    <button class="btn-run w-full text-white font-bold py-3 px-6 rounded-xl mt-6 text-lg" data-target-input="dartCodeInput1" data-target-output="dartOutput1">
+                        執行 Dart 程式碼
+                    </button>
+                </div>
+                <div class="output-area">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800">模擬輸出</h2>
+                    <pre id="dartOutput1" class="rounded-lg p-4 text-gray-800 border border-gray-300">
+                        點擊「執行 Dart 程式碼」按鈕查看輸出。
+                    </pre>
+                </div>
+            </div>
+
+            <div id="unit2" class="tab-pane">
+                <div class="code-area">
+                    <h2 class="text-3xl font-bold mb-6 text-white">Dart 程式碼輸入</h2>
+                    <div class="info-box p-4 rounded-lg mb-6 text-sm">
+                        <p class="font-semibold mb-2">💡 提示：</p>
+                        <p>本單元專注於 Dart 的條件語句 (`if`, `else if`, `else`)。</p>
+                        <ul class="list-disc list-inside mt-2">
+                            <li>模擬器會嘗試判斷簡單的布林條件 (`true`, `false`)。</li>
+                            <li>變數比較（如 `age > 18`）目前不支援，請直接使用 `true` 或 `false` 進行測試。</li>
+                        </ul>
+                        <p class="mt-2">請注意，這是一個簡化的模擬器，不支援完整的 Dart 語法解析或複雜邏輯。</p>
+                    </div>
+                    <textarea id="dartCodeInput2" placeholder="輸入您的 Dart 程式碼片段">
+void main() {
+  var isRaining = true; // 嘗試改為 false 看看
+  var temperature = 25; // 模擬器目前不處理數值比較
+
+  if (isRaining) { // 模擬器會判斷 isRaining 的布林值
+    print('外面正在下雨，記得帶傘！');
+  } else {
+    print('天氣晴朗，適合出門。');
+  }
+
+  // 模擬多重條件 (請直接使用 true/false 測試)
+  if (true) { // 模擬器會判斷此為 true
+    print('這是第一個條件。');
+  } else if (false) { // 模擬器會判斷此為 false
+    print('這是第二個條件。');
+  } else {
+    print('沒有條件符合。');
+  }
+}
+</textarea>
+                    <button class="btn-run w-full text-white font-bold py-3 px-6 rounded-xl mt-6 text-lg" data-target-input="dartCodeInput2" data-target-output="dartOutput2">
+                        執行 Dart 程式碼
+                    </button>
+                </div>
+                <div class="output-area">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800">模擬輸出</h2>
+                    <pre id="dartOutput2" class="rounded-lg p-4 text-gray-800 border border-gray-300">
+                        點擊「執行 Dart 程式碼」按鈕查看輸出。
+                    </pre>
+                </div>
+            </div>
+
+            <div id="unit3" class="tab-pane">
+                <div class="code-area">
+                    <h2 class="text-3xl font-bold mb-6 text-white">Dart 程式碼輸入</h2>
+                    <div class="info-box p-4 rounded-lg mb-6 text-sm">
+                        <p class="font-semibold mb-2">💡 提示：</p>
+                        <p>本單元專注於 Dart 的迴圈 (`for`, `while`)。</p>
+                        <ul class="list-disc list-inside mt-2">
+                            <li>模擬器會識別 `for` 和 `while` 迴圈的語法。</li>
+                            <li>對於 `for` 迴圈，會模擬執行 `print` 語句，但迴圈次數會被限制以避免無限迴圈。</li>
+                            <li>對於 `while` 迴圈，僅模擬其存在。</li>
+                        </ul>
+                        <p class="mt-2">請注意，這是一個簡化的模擬器，不支援完整的 Dart 語法解析或複雜邏輯。</p>
+                    </div>
+                    <textarea id="dartCodeInput3" placeholder="輸入您的 Dart 程式碼片段">
+void main() {
+  // for 迴圈範例
+  print('--- for 迴圈開始 ---');
+  for (int i = 0; i < 3; i++) { // 模擬器會執行 3 次
+    print('for 迴圈計數: $i');
+  }
+  print('--- for 迴圈結束 ---');
+
+  // while 迴圈範例
+  print('\n--- while 迴圈開始 ---');
+  int count = 0;
+  while (count < 2) { // 模擬器會執行 2 次
+    print('while 迴圈計數: $count');
+    count++;
+  }
+  print('--- while 迴圈結束 ---');
+
+  // 遍歷列表 (for-in 迴圈)
+  print('\n--- 遍歷列表 ---');
+  List<String> fruits = ['蘋果', '香蕉', '橘子'];
+  for (var fruit in fruits) {
+    print('水果: $fruit');
+  }
+}
+</textarea>
+                    <button class="btn-run w-full text-white font-bold py-3 px-6 rounded-xl mt-6 text-lg" data-target-input="dartCodeInput3" data-target-output="dartOutput3">
+                        執行 Dart 程式碼
+                    </button>
+                </div>
+                <div class="output-area">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800">模擬輸出</h2>
+                    <pre id="dartOutput3" class="rounded-lg p-4 text-gray-800 border border-gray-300">
+                        點擊「執行 Dart 程式碼」按鈕查看輸出。
+                    </pre>
+                </div>
+            </div>
+
+            <div id="unit4" class="tab-pane">
+                <div class="code-area">
+                    <h2 class="text-3xl font-bold mb-6 text-white">Dart 程式碼輸入</h2>
+                    <div class="info-box p-4 rounded-lg mb-6 text-sm">
+                        <p class="font-semibold mb-2">💡 提示：</p>
+                        <p>本單元專注於 Dart 的函數定義與呼叫。</p>
+                        <ul class="list-disc list-inside mt-2">
+                            <li>模擬器可以識別簡單的函數定義和 `print()` 語句。</li>
+                            <li>函數的參數和回傳值目前不支援複雜的運算。</li>
+                        </ul>
+                        <p class="mt-2">請注意，這是一個簡化的模擬器，不支援完整的 Dart 語法解析或複雜邏輯。</p>
+                    </div>
+                    <textarea id="dartCodeInput4" placeholder="輸入您的 Dart 程式碼片段">
+// 定義一個沒有回傳值的函數
+void greet(String name) {
+  print('哈囉, $name！歡迎來到 Dart 世界。');
+}
+
+// 定義一個有回傳值的函數
+String createMessage(String item) {
+  return '您選擇了: $item';
+}
+
+void main() {
+  // 呼叫函數
+  greet('小明');
+
+  // 呼叫有回傳值的函數並輸出結果
+  var myChoice = createMessage('蘋果');
+  print(myChoice);
+
+  // 匿名函數 (模擬器不執行其內部邏輯，僅識別語法)
+  var sayHello = () {
+    print('這是一個匿名函數。');
+  };
+  sayHello(); // 呼叫匿名函數
+}
+</textarea>
+                    <button class="btn-run w-full text-white font-bold py-3 px-6 rounded-xl mt-6 text-lg" data-target-input="dartCodeInput4" data-target-output="dartOutput4">
+                        執行 Dart 程式碼
+                    </button>
+                </div>
+                <div class="output-area">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800">模擬輸出</h2>
+                    <pre id="dartOutput4" class="rounded-lg p-4 text-gray-800 border border-gray-300">
+                        點擊「執行 Dart 程式碼」按鈕查看輸出。
+                    </pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const tabPanes = document.querySelectorAll('.tab-pane');
+
+            // 預設的 Dart 程式碼範例
+            const defaultCodeExamples = {
+                unit1: `void main() {
+  // 宣告不同型別的變數
+  var name = '工程師';
+  String greeting = "哈囉";
+  int year = 2025;
+  double price = 99.99;
+  bool isActive = true;
+
+  // 使用 print 函數輸出變數和字串插值
+  print('$greeting, $name！');
+  print('現在是 $year 年。');
+  print('商品價格: \\$\\{price\\}。'); // FIX: Escape $ and {} for JavaScript template literal
+  print('狀態活躍: $isActive');
+
+  // 您也可以直接輸出文字
+  print('這是一個直接的訊息。');
+}`,
+                unit2: `void main() {
+  var isRaining = true; // 嘗試改為 false 看看
+  var temperature = 25; // 模擬器目前不處理數值比較
+
+  if (isRaining) { // 模擬器會判斷 isRaining 的布林值
+    print('外面正在下雨，記得帶傘！');
+  } else {
+    print('天氣晴朗，適合出門。');
+  }
+
+  // 模擬多重條件 (請直接使用 true/false 測試)
+  if (true) { // 模擬器會判斷此為 true
+    print('這是第一個條件。');
+  } else if (false) { // 模擬器會判斷此為 false
+    print('這是第二個條件。');
+  } else {
+    print('沒有條件符合。');
+  }
+}`,
+                unit3: `void main() {
+  // for 迴圈範例
+  print('--- for 迴圈開始 ---');
+  for (int i = 0; i < 3; i++) { // 模擬器會執行 3 次
+    print('for 迴圈計數: $i');
+  }
+  print('--- for 迴圈結束 ---');
+
+  // while 迴圈範例
+  print('\\n--- while 迴圈開始 ---');
+  int count = 0;
+  while (count < 2) { // 模擬器會執行 2 次
+    print('while 迴圈計數: $count');
+    count++;
+  }
+  print('--- while 迴圈結束 ---');
+
+  // 遍歷列表 (for-in 迴圈)
+  print('\\n--- 遍歷列表 ---');
+  List<String> fruits = ['蘋果', '香蕉', '橘子'];
+  for (var fruit in fruits) {
+    print('水果: $fruit');
+  }
+}`,
+                unit4: `// 定義一個沒有回傳值的函數
+void greet(String name) {
+  print('哈囉, $name！歡迎來到 Dart 世界。');
+}
+
+// 定義一個有回傳值的函數
+String createMessage(String item) {
+  return '您選擇了: $item';
+}
+
+void main() {
+  // 呼叫函數
+  greet('小明');
+
+  // 呼叫有回傳值的函數並輸出結果
+  var myChoice = createMessage('蘋果');
+  print(myChoice);
+
+  // 匿名函數 (模擬器不執行其內部邏輯，僅識別語法)
+  var sayHello = () {
+    print('這是一個匿名函數。');
+  };
+  sayHello(); // 呼叫匿名函數
+}`
+            };
+
+            // 模擬 Dart 程式碼執行邏輯
+            function simulateDartCode(code) {
+                const lines = code.split('\n');
+                let output = [];
+                let variables = {}; // 模擬簡單的變數儲存
+
+                // Function to process a block of lines (e.g., inside main, if, for)
+                const processBlock = (blockLines) => {
+                    let blockOutput = [];
+                    blockLines.forEach(line => {
+                        line = line.trim();
+
+                        // Simulate print() statement
+                        const printMatch = line.match(/print\((['"])(.*?)\1\);/); // Capture content inside quotes
+                        if (printMatch) {
+                            let messageContent = printMatch[2]; // Get the content inside the quotes
+
+                            // Handle escaped dollar signs first: \$ -> $
+                            messageContent = messageContent.replace(/\\\$/g, '$');
+
+                            // Handle Dart string interpolation: ${expression}
+                            messageContent = messageContent.replace(/\$\{(\w+)\}/g, (match, varName) => {
+                                return variables[varName] !== undefined ? variables[varName] : match;
+                            });
+                            // Handle Dart string interpolation: $variable
+                            messageContent = messageContent.replace(/\$(\w+)/g, (match, varName) => {
+                                return variables[varName] !== undefined ? variables[varName] : match;
+                            });
+
+                            blockOutput.push(messageContent);
+                            return;
+                        }
+
+                        // Simulate variable declaration (var, int, String, bool, double)
+                        const varMatch = line.match(/(var|int|String|bool|double)\s+(\w+)\s*=\s*(.+?);/);
+                        if (varMatch) {
+                            const type = varMatch[1];
+                            const varName = varMatch[2];
+                            let varValue = varMatch[3];
+
+                            // Attempt to parse value
+                            if (varValue.startsWith("'") || varValue.startsWith('"')) {
+                                varValue = varValue.substring(1, varValue.length - 1); // Remove quotes
+                            } else if (varValue === 'true' || varValue === 'false') {
+                                varValue = (varValue === 'true');
+                            } else if (!isNaN(parseFloat(varValue))) {
+                                varValue = parseFloat(varValue);
+                            }
+                            variables[varName] = varValue;
+                            blockOutput.push(`(模擬) 宣告了 ${type} 變數: ${varName} = ${varValue}`);
+                            return;
+                        }
+
+                        // Simulate if/else statement (very simplified, only checks boolean literals)
+                        const ifMatch = line.match(/if\s*\((true|false)\)\s*\{/);
+                        if (ifMatch) {
+                            const condition = ifMatch[1] === 'true';
+                            let blockContent = [];
+                            let i = lines.indexOf(line) + 1;
+                            let braceCount = 1;
+                            while (i < lines.length && braceCount > 0) {
+                                const currentLine = lines[i].trim();
+                                if (currentLine === '{') braceCount++;
+                                if (currentLine === '}') braceCount--;
+                                if (braceCount > 0) blockContent.push(currentLine);
+                                i++;
+                            }
+
+                            if (condition) {
+                                blockOutput.push(`(模擬) 進入 if 區塊 (條件為真)`);
+                                blockOutput.push(...processBlock(blockContent)); // Recursive call for inner block
+                            } else {
+                                // Check for else
+                                const elseMatch = lines[i]?.trim().match(/else\s*\{/);
+                                if (elseMatch) {
+                                    blockOutput.push(`(模擬) 進入 else 區塊 (條件為假)`);
+                                    let elseBlockContent = [];
+                                    i++; // Skip else {
+                                    braceCount = 1;
+                                    while (i < lines.length && braceCount > 0) {
+                                        const currentLine = lines[i].trim();
+                                        if (currentLine === '{') braceCount++;
+                                        if (currentLine === '}') braceCount--;
+                                        if (braceCount > 0) elseBlockContent.push(currentLine);
+                                        i++;
+                                    }
+                                    blockOutput.push(...processBlock(elseBlockContent)); // Recursive call for inner block
+                                } else {
+                                    blockOutput.push(`(模擬) if 條件為假，跳過 if 區塊`);
+                                }
+                            }
+                            return;
+                        }
+
+                        // Simulate for loop (very simplified, only executes print statements a fixed number of times)
+                        const forMatch = line.match(/for\s*\((.+?)\s*;\s*(.+?)\s*;\s*(.+?)\)\s*\{/);
+                        if (forMatch) {
+                            blockOutput.push(`(模擬) 識別到 for 迴圈。`);
+                            let blockContent = [];
+                            let i = lines.indexOf(line) + 1;
+                            let braceCount = 1;
+                            while (i < lines.length && braceCount > 0) {
+                                const currentLine = lines[i].trim();
+                                if (currentLine === '{') braceCount++;
+                                if (currentLine === '}') braceCount--;
+                                if (braceCount > 0) blockContent.push(currentLine);
+                                i++;
+                            }
+                            const simulatedInnerOutput = processBlock(blockContent); // Recursive call for inner block
+                            for (let j = 0; j < 3; j++) { // Simulate 3 iterations
+                                blockOutput.push(`(模擬) 迴圈迭代 ${j + 1}:`);
+                                blockOutput.push(...simulatedInnerOutput);
+                            }
+                            blockOutput.push(`(模擬) for 迴圈模擬結束。`);
+                            return;
+                        }
+
+                        // Simulate while loop (very simplified, only executes print statements a fixed number of times)
+                        const whileMatch = line.match(/while\s*\((.+?)\)\s*\{/);
+                        if (whileMatch) {
+                            blockOutput.push(`(模擬) 識別到 while 迴圈。`);
+                            let blockContent = [];
+                            let i = lines.indexOf(line) + 1;
+                            let braceCount = 1;
+                            while (i < lines.length && braceCount > 0) {
+                                const currentLine = lines[i].trim();
+                                if (currentLine === '{') braceCount++;
+                                if (currentLine === '}') braceCount--;
+                                if (braceCount > 0) blockContent.push(currentLine);
+                                i++;
+                            }
+                            const simulatedInnerOutput = processBlock(blockContent); // Recursive call for inner block
+                            for (let j = 0; j < 2; j++) { // Simulate 2 iterations
+                                blockOutput.push(`(模擬) 迴圈迭代 ${j + 1}:`);
+                                blockOutput.push(...simulatedInnerOutput);
+                            }
+                            blockOutput.push(`(模擬) while 迴圈模擬結束。`);
+                            return;
+                        }
+
+                        // Simulate function call (very simplified, only recognizes function name and arguments)
+                        const functionCallMatch = line.match(/(\w+)\s*\((.*?)\);/);
+                        if (functionCallMatch) {
+                            const funcName = functionCallMatch[1];
+                            const args = functionCallMatch[2];
+                            blockOutput.push(`(模擬) 呼叫函數: ${funcName}(${args})`);
+                            if (funcName === 'createMessage') {
+                                const argValue = args.replace(/['"]/g, '');
+                                blockOutput.push(`(模擬) 函數回傳: 您選擇了: ${argValue}`);
+                            }
+                            if (funcName === 'greet') {
+                                 const argValue = args.replace(/['"]/g, '');
+                                 blockOutput.push(`哈囉, ${argValue}！歡迎來到 Dart 世界。`);
+                            }
+                            if (funcName === 'sayHello') {
+                                blockOutput.push(`這是一個匿名函數。`);
+                            }
+                            return;
+                        }
+
+                        // If empty line or comment, skip
+                        if (line === '' || line.startsWith('//') || line.startsWith('/*')) {
+                            return;
+                        }
+
+                        // For unrecognized syntax, provide a hint
+                        if (line.length > 0) {
+                            blockOutput.push(`(模擬) 未識別的語法或已跳過: ${line}`);
+                        }
+                    });
+                    return blockOutput;
+                };
+
+                let mainContent = [];
+                let inMainBlock = false;
+                let braceLevel = 0;
+
+                lines.forEach(line => {
+                    if (line.includes('void main() {')) {
+                        inMainBlock = true;
+                        braceLevel++;
+                        return; // Skip the main function declaration line itself
+                    }
+                    if (inMainBlock) {
+                        if (line.includes('{')) {
+                            braceLevel++;
+                        }
+                        if (line.includes('}')) {
+                            braceLevel--;
+                        }
+                        if (braceLevel === 0 && line.includes('}')) { // End of main function
+                            inMainBlock = false;
+                            return;
+                        }
+                        if (inMainBlock) { // Only add lines if still inside main
+                           mainContent.push(line);
+                        }
+                    }
+                });
+
+                // Process the main function content
+                const finalOutput = processBlock(mainContent);
+
+                if (finalOutput.length === 0) {
+                    return "沒有可模擬的 Dart 輸出。請嘗試輸入 `print('Hello');` 或變數宣告。";
+                }
+                return finalOutput.join('\n');
+            }
+
+            // Tab 切換邏輯
+            function showTab(tabId) {
+                tabPanes.forEach(pane => {
+                    pane.classList.remove('active');
+                });
+                tabButtons.forEach(button => {
+                    button.classList.remove('active');
+                });
+
+                document.getElementById(tabId).classList.add('active');
+                document.querySelector(`.tab-button[data-tab="${tabId}"]`).classList.add('active');
+
+                // 載入該單元的預設程式碼並執行
+                const inputId = `dartCodeInput${tabId.replace('unit', '')}`;
+                const outputId = `dartOutput${tabId.replace('unit', '')}`;
+                const currentInput = document.getElementById(inputId);
+                const currentOutput = document.getElementById(outputId);
+
+                if (currentInput) {
+                    currentInput.value = defaultCodeExamples[tabId];
+                    // 自動執行一次程式碼
+                    const simulatedOutput = simulateDartCode(currentInput.value);
+                    currentOutput.textContent = simulatedOutput;
+                }
+            }
+
+            // 為每個 Tab 按鈕添加事件監聽器
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const tabId = button.dataset.tab;
+                    showTab(tabId);
+                });
+            });
+
+            // 為每個「執行 Dart 程式碼」按鈕添加事件監聽器
+            document.querySelectorAll('.btn-run').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const targetInputId = event.target.dataset.targetInput;
+                    const targetOutputId = event.target.dataset.targetOutput;
+                    const code = document.getElementById(targetInputId).value;
+                    const simulatedOutput = simulateDartCode(code);
+                    document.getElementById(targetOutputId).textContent = simulatedOutput;
+                });
+            });
+
+            // 預設顯示第一個單元
+            showTab('unit1');
+        });
+    </script>
+</body>
+</html>
